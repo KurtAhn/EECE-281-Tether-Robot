@@ -1,25 +1,8 @@
-#include <stdio.h>
-//#include <stdlib.h>
 #include <at89lp51rd2.h>
+#include "Common.h"
+#include "Transmitter.h"
 
-// ~C51~ 
- 
-#define CLK 22118400L
-#define BAUD 115200L
-#define BRG_VAL (0x100-(CLK/(32L*BAUD)))
-
-//We want timer 0 and 1 freq 2 x 15.92 kHz (15920Hz)
-#define FREQ 31840L
-#define TIMER0_RELOAD_VALUE (65536L-(CLK/(12L*FREQ)))
-
-//Definitions for Bonus Calculations
-#define RPM_RATIO 0.09
-#define PI 3.14159 
-
-//These variables are used in the ISR
-volatile unsigned char pwmcount1;
-volatile unsigned char pwmcount2;
-volatile unsigned char pwm;
+volatile unsigned char serial_bit;
 
 unsigned char _c51_external_startup(void)
 {
@@ -30,48 +13,72 @@ unsigned char _c51_external_startup(void)
 	P3M0=0;	P3M1=0;
 	AUXR=0B_0001_0001; // 1152 bytes of internal XDATA, P4.4 is a general purpose I/O
 	P4M0=0;	P4M1=0;
-    
-    // Initialize the serial port and baud rate generator
-    PCON|=0x80;
-	SCON = 0x52;
-    BDRCON=0;
-    BRL=BRG_VAL;
-    BDRCON=BRR|TBCK|RBCK|SPD;
+    	
+	TR0 = 0;
 	
-	// Initialize timer 0 for ISR 'pwmcounter()' below
-	TR0=0; // Stop timer 0
-	TMOD=0x01; // 16-bit timer
-	// Use the autoreload feature available in the AT89LP51RB2
-	// WARNING: There was an error in at89lp51rd2.h that prevents the
-	// autoreload feature to work.  Please download a newer at89lp51rd2.h
-	// file and copy it to the crosside\call51\include folder.
-	TH0=RH0=TIMER0_RELOAD_VALUE/0x100;
-	TL0=RL0=TIMER0_RELOAD_VALUE%0x100;
-	TR0=1; // Start timer 0 (bit 4 in TCON)
-	ET0=1; // Enable timer 0 interrupt
-	EA=1;  // Enable global interrupts
+	TMOD = 0x01;
 	
-	pwmcount1=0;
-	pwmcount2=1;
-    
+	TH0 = TIMER0_RELOAD / 0x100;
+	TL0 = TIMER0_RELOAD % 0x100;	
+	
+	TR0 = 1;
+	
+	ET0 = 1;
+	
+	EA = 1;
+	
     return 0;
 }
 
-
-// Interrupt 1 is for timer 0.  This function is executed every time
-// timer 0 overflows: 15.92 kHz.
-void pwmcounter (void) interrupt 1
+void modulate (void) interrupt 1
 {
+	TH0 = TIMER0_RELOAD / 0x100;
+	TL0 = TIMER0_RELOAD % 0x100;
+	/*
 	if(++pwmcount1>1) pwmcount1=0;
 	if(++pwmcount2>1) pwmcount2=0;
 	P1_0=(pwm>pwmcount1)?1:0;
 	P1_1=(pwm>pwmcount2)?1:0;
+	*/
+	if (serial_bit) {
+		OUT_MODULATE1 = !OUT_MODULATE1;
+		OUT_MODULATE2 = !OUT_MODULATE1;
+	}
+	else {
+		OUT_MODULATE1 = 0;
+		OUT_MODULATE2 = 0;
+	}
+}
+
+void send_byte(unsigned char byte) {
+	unsigned char i;
+	
+	serial_bit = 0;
+	wait_half_bit();
+	wait_half_bit();
+	
+	for (i = 0; i < 8; ++i) {
+		serial_bit = byte & (0x01 << i) ? 1 : 0;
+		wait_half_bit();
+		wait_half_bit();
+	}
+	
+	serial_bit = 1;
+	wait_half_bit();
+	wait_half_bit();
+	wait_half_bit();
+	wait_half_bit();
 }
 
 void main (void)
 {
-	pwm=1; //default 50% duty cycle 1 wave at 100Hz
+	unsigned char instruction = 0;
 	
+	
+	while (1) {
+		send_byte(instruction++);
+		//serial_bit = 1;
+	}
 	
 }
 
