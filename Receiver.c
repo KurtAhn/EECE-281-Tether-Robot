@@ -1,11 +1,23 @@
 //baud rate: 300
 
-#define WHEEL_LEFT1 p3_4
-#define WHEEL_LEFT2 p3_5
-#define WHEEL_RIGHT1 p3_6
-#define WHEEL_RIGHT2 p3_7
+#include <stdio.h>
+#include <at89lp51rd2.h>
+#include "Common.h"
+
+#define WHEEL_LEFT1 P3_4
+#define WHEEL_LEFT2 P3_5
+#define WHEEL_RIGHT1 P3_6
+#define WHEEL_RIGHT2 P3_7
 #define RADIUS 4.5
 #define C_WHEEL 21.362
+#define CLK 22118400L
+#define BAUD 115200L
+#define BRG_VAL (0x100-(CLK/(32L*BAUD)))
+#define FREQ 10000L
+#define TIMER0_RELOAD_VALUE (65536L-(CLK/(12L*FREQ)))
+
+volatile unsigned char pwmcount;
+volatile unsigned char pwm1, pwm2, pwm3, pwm4;
 
 unsigned char _c51_external_startup(void)
 {
@@ -37,14 +49,58 @@ unsigned char _c51_external_startup(void)
 
 void pwmcounter (void) interrupt 1
 {
-	if(++pwmcount>99) pwmcount=0;
+	if(++pwmcount>99){
+		pwmcount=0;
+	}
 	WHEEL_LEFT1=(pwm1>pwmcount)?1:0;
 	WHEEL_LEFT2=(pwm2>pwmcount)?1:0;
-	WHEEL_RIGHT1=(pwm3>pwmcount?1:0;
-	WHEEL_RIGHT2=(pwm4>pwmcount?1:0;
+	WHEEL_RIGHT1=(pwm3>pwmcount)?1:0;
+	WHEEL_RIGHT2=(pwm4>pwmcount)?1:0;
+}
+
+void wait_one_and_half_bit_time()
+{
+	wait_half_bit();
+	wait_half_bit();
+	wait_half_bit();	
+}
+
+void wait_bit_time()
+{
+	wait_half_bit();
+	wait_half_bit();
 }
 
 
+
+void SPIWrite(unsigned char value)
+{
+	SPSTA&=(~SPIF); // Clear the SPIF flag in SPSTA
+	SPDAT=value;
+	while((SPSTA & SPIF)!=SPIF); //Wait for transmission to end
+}
+
+unsigned int GetADC(unsigned char channel)
+{
+	unsigned int adc;
+
+	// initialize the SPI port to read the MCP3004 ADC attached to it.
+	SPCON&=(~SPEN); // Disable SPI
+	SPCON=MSTR|CPOL|CPHA|SPR1|SPR0|SSDIS;
+	SPCON|=SPEN; // Enable SPI
+	
+	P1_4=0; // Activate the MCP3004 ADC.
+	SPIWrite(channel|0x18);	// Send start bit, single/diff* bit, D2, D1, and D0 bits.
+	for(adc=0; adc<10; adc++); // Wait for S/H to setup
+	SPIWrite(0x55); // Read bits 9 down to 4
+	adc=((SPDAT&0x3f)*0x100);
+	SPIWrite(0x55);// Read bits 3 down to 0
+	P1_4=1; // Deactivate the MCP3004 ADC.
+	adc+=(SPDAT&0xf0); // SPDR contains the low part of the result. 
+	adc>>=4;
+		
+	return adc;
+}
 
 unsigned char rx_byte ( int min )
 {
@@ -64,10 +120,7 @@ unsigned char rx_byte ( int min )
 	return val;
 }
 
-void wait_one_and_half_bit_time()
-{
-	
-}
+
 
 void move_wheel (unsigned char wheel_num, char speed)
 {
@@ -89,9 +142,21 @@ void move_wheel (unsigned char wheel_num, char speed)
 
 void move_straight (char speed)
 {
-	move_wheel(0, speed);
+	move_wheel(0, -speed);
 	move_wheel(1, speed);
 }
 
-void turn_right (char degree) {
+void turn_right (char degree) 
+{
+	float turn_pwm = 2*3.14*4.65*degree/360/20.7348/0.8;
+	move_wheel(0, turn_pwm/2);
+	move_wheel(1, turn_pwm/2);
+}
+
+void main()
+{
+	
+	turn_right(90);
+
+}
 	
