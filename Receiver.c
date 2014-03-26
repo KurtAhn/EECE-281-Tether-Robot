@@ -148,7 +148,7 @@ void move_straight (char speed)
 
 void turn_right (char degree) 
 {
-	float turn_pwm = 2*3.14*4.65*degree/360/20.7348/0.8;
+	float turn_pwm = 2*3.14*4.65*degree/360/20.7348/0.8*100;
 	move_wheel(0, turn_pwm/2);
 	move_wheel(1, turn_pwm/2);
 }
