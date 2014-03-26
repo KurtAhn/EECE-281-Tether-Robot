@@ -7,3 +7,5 @@
 #define TIMER0_RELOAD (65536L - (CLOCK / (24L * FREQUENCY)))
 
 #endif
+
+// Anver was here
