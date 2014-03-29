@@ -1,6 +1,7 @@
 //baud rate: 300
 
 #include <stdio.h>
+#include <math.h>
 #include <at89lp51rd2.h>
 #include "Common.h"
 
@@ -18,7 +19,12 @@
 
 volatile unsigned char pwmcount;
 volatile unsigned char pwm1, pwm2, pwm3, pwm4;
-
+//left orange wire -CHO - PIN 1  (OUTPUT FOR LEFT MOTOR)
+//right orange wire -CH1 - PIN 2  (OUTPUT FOR RIGHT MOTOR)
+//MISO -P1.5 - PIN 10
+//SCK - P1.6 - PIN11
+//MOSI -P1.7  -PIN9
+//CE*  -P1.4  -PIN8
 unsigned char _c51_external_startup(void)
 {
 	// Configure ports as a bidirectional with internal pull-ups.
@@ -101,7 +107,16 @@ unsigned int GetADC(unsigned char channel)
 		
 	return adc;
 }
-
+float voltage (unsigned char channel)
+{
+	return ( (GetADC(channel)*4.77)/1023.0 ); // VCC=4.77V (measured) !@#!@#$@! VCC needs to be measured 
+}
+getDistance (unsigned char channel)
+{
+	unsigned int distance;
+	const char constant;
+	distance = cbrt(voltage(channel))*constant; //@!#!#!@#$ constant needs to be determined later. It is a connection between cube root of vlotage and distance. 
+}
 unsigned char rx_byte ( int min )
 {
 	unsigned char j, val;
