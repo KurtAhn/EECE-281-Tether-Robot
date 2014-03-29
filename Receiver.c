@@ -111,11 +111,11 @@ float voltage (unsigned char channel)
 {
 	return ( (GetADC(channel)*4.77)/1023.0 ); // VCC=4.77V (measured) !@#!@#$@! VCC needs to be measured 
 }
-getDistance (unsigned char channel)
+float getDistance (unsigned char channel)
 {
-	unsigned int distance;
+	float distance;
 	const char constant;
-	distance = cbrt(voltage(channel))*constant; //@!#!#!@#$ constant needs to be determined later. It is a connection between cube root of vlotage and distance. 
+	return distance = cbrt(voltage(channel))*constant; //@!#!#!@#$ constant needs to be determined later. It is a connection between cube root of vlotage and distance. 
 }
 unsigned char rx_byte ( int min )
 {
