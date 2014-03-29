@@ -115,7 +115,8 @@ float getDistance (unsigned char channel)
 {
 	float distance;
 	const char constant;
-	return distance = cbrt(voltage(channel))*constant; //@!#!#!@#$ constant needs to be determined later. It is a connection between cube root of vlotage and distance. 
+	distance = cbrt(voltage(channel))*constant; //@!#!#!@#$ constant needs to be determined later. It is a connection between cube root of vlotage and distance. 
+	return distance;
 }
 unsigned char rx_byte ( int min )
 {
