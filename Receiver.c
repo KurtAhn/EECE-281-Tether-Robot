@@ -2,8 +2,18 @@
 
 #include <stdio.h>
 #include <at89lp51rd2.h>
-#include "Common.h"
 #include <math.h>
+
+void wait_half_bit() {
+	_asm
+		mov r1, #49
+	WAIT_1:
+		mov r0, #250
+	WAIT_0:
+		djnz r0, WAIT_0
+		djnz r1, WAIT_1
+	_endasm;
+}
 
 #define WHEEL_LEFT1 P3_4
 #define WHEEL_LEFT2 P3_5
@@ -65,19 +75,6 @@ void pwmcounter (void) interrupt 1
 	WHEEL_RIGHT2=(pwm4>pwmcount)?1:0;
 }
 
-void wait_one_and_half_bit_time()
-{
-	wait_half_bit();
-	wait_half_bit();
-	wait_half_bit();	
-}
-
-void wait_bit_time()
-{
-	wait_half_bit();
-	wait_half_bit();
-}
-
 
 
 void SPIWrite(unsigned char value)
@@ -108,27 +105,30 @@ unsigned int GetADC(unsigned char channel)
 		
 	return adc;
 }
-/*
-unsigned int Receive10bit ( int min )																											```````````
+
+unsigned int Receive10bit()																											```````````
 {
 	unsigned char j, val;
 	int v;
 	//Skip the start bit
 	val=0;
-	wait_one_and_half_bit_time();
+	wait_half_bit();
+	wait_half_bit();
+	wait_half_bit();
 	for(j=0; j<10; j++)
 	{
 		v=GetADC(0);
-		val|=(v>min)?(0x01<<j):0x00;
-		wait_bit_time();
+		val|=(v>threshold_voltage)?(0x01<<j):0x00;
+		wait_half_bit();
+		wait_half_bit();
 	}
 	//Wait for stop bits
+	wait_half_bit();
 	threshold_voltage = GetADC(0);
-	wait_one_and_half_bit_time();
+	wait_half_bit();
+	wait_half_bit();
 	return val;
 }
-
-*/
 
 void move_wheel (unsigned char wheel_num, char speed)
 {
@@ -178,7 +178,7 @@ void turn_right (char degree)
 	move_wheel(1, 0);
 }
 
-/*
+
 void Do_Command()
 {
 	int command = Receive10bit();
@@ -283,36 +283,27 @@ void Do_Command()
 	{
 		mode = 3;
 	}
-}//end of do command			
-				
-*/				
+}//end of do command
 				
 				
 
 void main()
 {
-	turn_right(90);
-	move_straight(50);
-	wait1s();
-	move_wheel(0,0);
-	move_wheel(0,1);
-	turn_right(-90);
+//	turn_right(90);
+//	move_straight(50);
+//	wait1s();
+//	move_wheel(0,0);
+//	move_wheel(0,1);
+//	turn_right(-90);
 	
 	
-	//char adc;
-	//char val;
-	
-	/*
 	//read from adc
 	//read byte(adc/2)
 	//do commands
 	while (1)
 	{
-		 adc= GetADC(0);
-		 do_command(Receive9Bits(adc/2));
+		 do_command(Receive9Bits());
 	}
-	*/
-	
 }
 	
 	
