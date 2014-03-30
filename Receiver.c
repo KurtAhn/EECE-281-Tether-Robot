@@ -6,7 +6,7 @@
 
 void wait_half_bit() {
 	_asm
-		mov r1, #49
+		mov r1, #122
 	WAIT_1:
 		mov r0, #250
 	WAIT_0:
