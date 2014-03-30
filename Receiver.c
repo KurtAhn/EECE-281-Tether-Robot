@@ -23,7 +23,8 @@
 volatile unsigned char pwmcount;
 volatile unsigned char pwm1, pwm2, pwm3, pwm4;
 volatile unsigned char mode;
-volatile float threshold;
+volatile float threshold_distance;
+volatile unsigned int threshold_voltage;
 
 unsigned char _c51_external_startup(void)
 {
@@ -122,6 +123,7 @@ unsigned int Receive10bit ( int min )																											```````````
 		wait_bit_time();
 	}
 	//Wait for stop bits
+	threshold_voltage = GetADC(0);
 	wait_one_and_half_bit_time();
 	return val;
 }
@@ -187,28 +189,28 @@ void Do_Command()
 	{
 		if (mode == 0)
 		{
-			threshhold += vertical/100;
-			if (getDistance(0)<threshold)
+			threshold_distance += vertical/100;
+			if (getDistance(0)<threshold_distance)
 			{
 				move_wheel(0,-25);
 			}
-			else if (getDistance(0)>threshold)
+			else if (getDistance(0)>threshold_distance)
 			{
 				move_wheel(0,25);
 			}
-			else if (getDistance(1)<threshold)
+			else if (getDistance(1)<threshold_distance)
 			{
 				move_wheel(1,25);
 			}
-			else if (getDistance(1)>threshold)
+			else if (getDistance(1)>threshold_distance)
 			{
 				move_wheel(1,-25);
 			}
-			else if (getDistance(0) == threshold)
+			else if (getDistance(0) == threshold_distance)
 			{
 				move_wheel(0,0);
 			}
-			else if (getDistance(1) == threshold)
+			else if (getDistance(1) == threshold_distance)
 			{
 				move_wheel(1,0);
 			}	
@@ -289,6 +291,11 @@ void Do_Command()
 
 void main()
 {
+	turn_right(90);
+	move_straight(50);
+	wait1s();
+	move_wheel(0,0);
+	move_wheel(0,1);
 	turn_right(-90);
 	
 	
