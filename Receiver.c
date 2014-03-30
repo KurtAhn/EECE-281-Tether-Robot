@@ -1,9 +1,9 @@
 //baud rate: 300
 
 #include <stdio.h>
-#include <math.h>
 #include <at89lp51rd2.h>
 #include "Common.h"
+#include <math.h>
 
 #define WHEEL_LEFT1 P3_4
 #define WHEEL_LEFT2 P3_5
@@ -17,14 +17,14 @@
 #define FREQ 10000L
 #define TIMER0_RELOAD_VALUE (65536L-(CLK/(12L*FREQ)))
 
+
+
+
 volatile unsigned char pwmcount;
 volatile unsigned char pwm1, pwm2, pwm3, pwm4;
-//left orange wire -CHO - PIN 1  (OUTPUT FOR LEFT MOTOR)
-//right orange wire -CH1 - PIN 2  (OUTPUT FOR RIGHT MOTOR)
-//MISO -P1.5 - PIN 10
-//SCK - P1.6 - PIN11
-//MOSI -P1.7  -PIN9
-//CE*  -P1.4  -PIN8
+volatile unsigned char mode;
+volatile float threshold;
+
 unsigned char _c51_external_startup(void)
 {
 	// Configure ports as a bidirectional with internal pull-ups.
@@ -107,25 +107,15 @@ unsigned int GetADC(unsigned char channel)
 		
 	return adc;
 }
-float voltage (unsigned char channel)
-{
-	return ( (GetADC(channel)*4.77)/1023.0 ); // VCC=4.77V (measured) !@#!@#$@! VCC needs to be measured 
-}
-float getDistance (unsigned char channel)
-{
-	float distance;
-	const char constant;
-	distance = cbrt(voltage(channel))*constant; //@!#!#!@#$ constant needs to be determined later. It is a connection between cube root of vlotage and distance. 
-	return distance;
-}
-unsigned char rx_byte ( int min )
+/*
+unsigned int Receive10bit ( int min )																											```````````
 {
 	unsigned char j, val;
 	int v;
 	//Skip the start bit
 	val=0;
 	wait_one_and_half_bit_time();
-	for(j=0; j<8; j++)
+	for(j=0; j<10; j++)
 	{
 		v=GetADC(0);
 		val|=(v>min)?(0x01<<j):0x00;
@@ -136,7 +126,7 @@ unsigned char rx_byte ( int min )
 	return val;
 }
 
-
+*/
 
 void move_wheel (unsigned char wheel_num, char speed)
 {
@@ -158,21 +148,165 @@ void move_wheel (unsigned char wheel_num, char speed)
 
 void move_straight (char speed)
 {
-	move_wheel(0, -speed);
-	move_wheel(1, speed);
+	move_wheel(0, speed > 0 ? 0.88*speed : -speed);
+	move_wheel(1, speed > 0 ? -speed : 0.88*speed);
+}
+
+void wait1s() {
+	_asm
+		mov r2, #300
+	WAIT_1s_2:
+		mov r1, #49
+	WAIT_1s_1:
+		mov r0, #250
+	WAIT_1s_0:
+		djnz r0, WAIT_1s_0
+		djnz r1, WAIT_1s_1
+		djnz r2, WAIT_1s_2
+	_endasm;
 }
 
 void turn_right (char degree) 
 {
 	float turn_pwm = 2*3.14*4.65*degree/360/20.7348/0.8*100;
-	move_wheel(0, turn_pwm/2);
-	move_wheel(1, turn_pwm/2);
+	move_wheel(0, turn_pwm > 0 ? turn_pwm*0.85: turn_pwm*0.85);
+	move_wheel(1, turn_pwm > 0 ? turn_pwm*0.85: turn_pwm*0.85);
+	wait1s();
+	move_wheel(0, 0);
+	move_wheel(1, 0);
 }
+
+/*
+void Do_Command()
+{
+	int command = Receive10bit();
+	float vertical = ((command & 0B_0000_111_000)>>3 - 3);
+	float horizontal = ((command & 0B_0000_000_111) - 3);
+	
+	if ( (command & 0B_1111_000_000) == 0B_0000_000_000 )
+	{
+		if (mode == 0)
+		{
+			threshhold += vertical/100;
+			if (getDistance(0)<threshold)
+			{
+				move_wheel(0,-25);
+			}
+			else if (getDistance(0)>threshold)
+			{
+				move_wheel(0,25);
+			}
+			else if (getDistance(1)<threshold)
+			{
+				move_wheel(1,25);
+			}
+			else if (getDistance(1)>threshold)
+			{
+				move_wheel(1,-25);
+			}
+			else if (getDistance(0) == threshold)
+			{
+				move_wheel(0,0);
+			}
+			else if (getDistance(1) == threshold)
+			{
+				move_wheel(1,0);
+			}	
+		}//end of auto mode
+		
+		else if (mode ==1)
+		{
+			if ( vertical > -1 & vertical < 1 & horizontal < -1) //rotate left
+			{
+				move_wheel(0, -25);
+				move_wheel(1, -25);
+			}
+			
+			else if (vertical > -1 & vertical < 1 & horizontal > 1) //rotate right
+			{
+				move_wheel(0, 25);
+				move_wheel(1, 25);
+			}
+			
+			else if (horizontal > -1 & horizontal < 1 & vertical > 1)//move forward
+			{
+				move_straight(50);
+			}
+			
+			else if (horizontal > -1 & horizontal < 1 & vertical < -1) //move backward
+			{
+				move_straight(-50);
+			}
+			
+			else if (horizontal > -1 & horizontal < 1 & vertical > -1 & vertical < 1) //stop
+			{
+				move_wheel(0,0);
+				move_wheel(1,0);
+			}
+		}//end of drive mode
+		
+		else if (mode == 2)
+		{
+			turn_right(90);
+			move_straight(50);
+			wait1s();
+			move_wheel(0,0);
+			move_wheel(0,1);
+			turn_right(-90);
+		}//end of parallel mode
+		
+		else if (mode == 3)
+		{
+			turn_right(90);
+			turn_right(90);
+		}//end of turn 180 mode
+	}
+	
+	else if ( (command & 0B_1111_000_000) == 0B_1000_000_000 )
+	{
+		mode = 0;
+	}
+	
+	else if ( (command & 0B_1111_000_000) == 0B_0100_000_000 )
+	{
+		mode = 1;
+	}
+								
+	else if ( (command & 0B_1111_000_000) == 0B_0010_000_000 )
+	{
+		mode = 2;
+	}
+	
+	else if ( (command & 0B_1111_000_000) == 0B_0001_000_000 )
+	{
+		mode = 3;
+	}
+}//end of do command			
+				
+*/				
+				
+				
 
 void main()
 {
+	turn_right(-90);
 	
-	turn_right(90);
-
+	
+	//char adc;
+	//char val;
+	
+	/*
+	//read from adc
+	//read byte(adc/2)
+	//do commands
+	while (1)
+	{
+		 adc= GetADC(0);
+		 do_command(Receive9Bits(adc/2));
+	}
+	*/
+	
 }
+	
+	
 	
